@@ -32,10 +32,21 @@ func child() {
 		os.Exit(1)
 	}
 
+	if err := syscall.Chroot("/home/sahas/Projects/Go/container/rootfs"); err != nil {
+		fmt.Println("Error changing root directory:", err)
+		os.Exit(1)
+	}
+
+	if err := syscall.Chdir("/"); err != nil {
+		fmt.Println("Error changing directory:", err)
+		os.Exit(1)
+	}
+
 	cmd := exec.Command(os.Args[2], os.Args[3:]...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.Env = append(os.Environ(), "PATH=/bin:/usr/bin:/sbin:/usr/sbin")
 
 	if err := cmd.Run(); err != nil {
 		fmt.Println("Error running the child command in the new namespace:", err)
@@ -51,7 +62,7 @@ func main() {
 	case "child":
 		child()
 	default:
-		fmt.Println("Usage: go run main.go run <command> [args] | child <command> [args]")
+		fmt.Println("Usage: ./container run <command> [args]")
 		os.Exit(1)
 	}
 }
