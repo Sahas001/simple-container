@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/user"
+	"strconv"
 	"syscall"
 )
 
@@ -42,11 +44,44 @@ func child() {
 		os.Exit(1)
 	}
 
+	// mount the proc filesystem for managing processes
+
+	if err := syscall.Mount("proc", "proc", "proc", 0, ""); err != nil {
+		fmt.Println("Error mounting proc filesystem:", err)
+		os.Exit(1)
+	}
+
+	userName := "guest"
+	u, err := user.Lookup(userName)
+	if err != nil {
+		fmt.Println("Error looking up user:", err)
+		os.Exit(1)
+	}
+
+	uid, err := strconv.Atoi(u.Uid)
+	if err != nil {
+		fmt.Println("Error converting UID:", err)
+		os.Exit(1)
+	}
+
+	gid, err := strconv.Atoi(u.Gid)
+	if err != nil {
+		fmt.Println("Error converting GID:", err)
+		os.Exit(1)
+	}
+
 	cmd := exec.Command(os.Args[2], os.Args[3:]...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = append(os.Environ(), "PATH=/bin:/usr/bin:/sbin:/usr/sbin")
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Credential: &syscall.Credential{
+			Uid:         uint32(uid),
+			Gid:         uint32(gid),
+			NoSetGroups: true,
+		},
+	}
 
 	if err := cmd.Run(); err != nil {
 		fmt.Println("Error running the child command in the new namespace:", err)
